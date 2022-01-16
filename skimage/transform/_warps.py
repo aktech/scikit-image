@@ -735,11 +735,16 @@ def _clip_warp_output(input_image, output_image, mode, cval, clip):
 
         if preserve_cval:
             cval_mask = output_image == cval
-
-        np.clip(output_image, min_val, max_val, out=output_image)
+        if hasattr(output_image, '_array'):
+            np.clip(output_image._array, min_val, max_val, out=output_image._array)
+        else:
+            np.clip(output_image, min_val, max_val, out=output_image)
 
         if preserve_cval:
-            output_image[cval_mask] = cval
+            if hasattr(output_image, '_array'):
+                output_imagie._array[cval_mask] = cval
+            else:
+                output_image[cval_mask] = cval
 
 
 def warp(image, inverse_map, map_args={}, output_shape=None, order=None,
