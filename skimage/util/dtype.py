@@ -1,6 +1,8 @@
 import numpy as np
 from warnings import warn
 
+from .array_compatibility import get_namespace
+
 
 __all__ = ['img_as_float32', 'img_as_float64', 'img_as_float',
            'img_as_int', 'img_as_uint', 'img_as_ubyte',
@@ -224,7 +226,9 @@ def _convert(image, dtype, force_copy=False, uniform=False):
            pp 47-57. Morgan Kaufmann, 1998.
 
     """
-    image = np.asarray(image)
+    xp, array_api = get_namespace(image)
+    #xp = np
+    image = xp.asarray(image)
     dtypeobj_in = image.dtype
     if dtype is np.floating:
         dtypeobj_out = np.dtype('float64')
@@ -316,8 +320,11 @@ def _convert(image, dtype, force_copy=False, uniform=False):
         if kind_in == 'u':
             # using np.divide or np.multiply doesn't copy the data
             # until the computation time
-            image = np.multiply(image, 1. / imax_in,
-                                dtype=computation_type)
+            if array_api:
+                image = xp.astype(image, computation_type)
+            else:
+                image = image.astype(computation_type)
+            image = xp.multiply(image, xp.asarray(1. / imax_in))
             # DirectX uses this conversion also for signed ints
             # if imin_in:
             #     np.maximum(image, -1.0, out=image)
@@ -335,7 +342,7 @@ def _convert(image, dtype, force_copy=False, uniform=False):
             image = np.add(image, 0.5, dtype=computation_type)
             image *= 2 / (imax_in - imin_in)
 
-        return np.asarray(image, dtype_out)
+        return xp.asarray(image)
 
     # unsigned int -> signed/unsigned int
     if kind_in == 'u':

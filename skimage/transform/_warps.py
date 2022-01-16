@@ -14,6 +14,8 @@ from .._shared.utils import (get_bound_method_class, safe_as_int, warn,
                              channel_as_last_axis,
                              deprecate_multichannel_kwarg)
 
+from skimage.util.array_compatibility import get_namespace
+
 HOMOGRAPHY_TRANSFORMS = (
     SimilarityTransform,
     AffineTransform,
@@ -161,7 +163,9 @@ def resize(image, output_shape, order=None, mode='reflect', cval=0, clip=True,
         image = convert_to_float(image, preserve_range)
 
     # Save input value range for clip
-    img_bounds = np.array([image.min(), image.max()]) if clip else None
+    xp, _ = get_namespace(image)
+    image_array = image._array if hasattr(image, '_array') else image
+    img_bounds = xp.asarray([image_array.min(), image_array.max()]) if clip else None
 
     # Translate modes used by np.pad to those used by scipy.ndimage
     ndi_mode = _to_ndimage_mode(mode)
@@ -183,7 +187,13 @@ def resize(image, output_shape, order=None, mode='reflect', cval=0, clip=True,
     if NumpyVersion(scipy.__version__) >= '1.6.0':
         # The grid_mode kwarg was introduced in SciPy 1.6.0
         zoom_factors = [1 / f for f in factors]
-        out = ndi.zoom(image, zoom_factors, order=order, mode=ndi_mode,
+        import cupy.array_api as cpx
+        if isinstance(image, cpx._array_object.Array):
+            from cupyx.scipy import ndimage as cpx_ndi
+            zoom_func = cpx_ndi.zoom
+        else:
+            zoom_func = ndi.zoom
+        out = zoom_func(image, zoom_factors, order=order, mode=ndi_mode,
                        cval=cval, grid_mode=True)
 
     # TODO: Remove the fallback code below once SciPy >= 1.6.0 is required.
@@ -716,8 +726,9 @@ def _clip_warp_output(input_image, output_image, mode, cval, clip):
 
     """
     if clip:
-        min_val = input_image.min()
-        max_val = input_image.max()
+        input_image_array = input_image._array if hasattr(input_image, '_array') else input_image
+        min_val = input_image_array.min()
+        max_val = input_image_array.max()
 
         preserve_cval = (mode == 'constant' and not
                          (min_val <= cval <= max_val))
