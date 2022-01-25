@@ -142,7 +142,6 @@ def resize(image, output_shape, order=None, mode='reflect', cval=0, clip=True,
     (100, 100)
 
     """
-
     image, output_shape = _preprocess_resize_output_shape(image, output_shape)
     input_shape = image.shape
     input_type = image.dtype
@@ -188,6 +187,7 @@ def resize(image, output_shape, order=None, mode='reflect', cval=0, clip=True,
         # The grid_mode kwarg was introduced in SciPy 1.6.0
         zoom_factors = [1 / f for f in factors]
         import cupy.array_api as cpx
+        xp, array_api = get_namespace(image)
         if isinstance(image, cpx._array_object.Array):
             from cupyx.scipy import ndimage as cpx_ndi
             zoom_func = cpx_ndi.zoom
@@ -195,6 +195,7 @@ def resize(image, output_shape, order=None, mode='reflect', cval=0, clip=True,
             zoom_func = ndi.zoom
         out = zoom_func(image, zoom_factors, order=order, mode=ndi_mode,
                        cval=cval, grid_mode=True)
+        out = xp.asarray(out)
 
     # TODO: Remove the fallback code below once SciPy >= 1.6.0 is required.
 
